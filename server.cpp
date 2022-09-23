@@ -28,7 +28,7 @@ std::string buildCommand(char line[]) {
     return command;
 }
 
-void extractInfo(char line[], std::string info[], std::string command) {
+bool extractInfo(char line[], std::string info[], std::string command) {
     std::cout << "entered info loop" << std::endl;
     int l = command.length();
     int spaceLocation = l+1;
@@ -42,10 +42,16 @@ void extractInfo(char line[], std::string info[], std::string command) {
                 break;
             info[i] += line[j];
         }
+        if (info[i] == "") {
+            //std::cout << "Invalid command: Missing information" << std::endl;
+            std::fill_n(info, 4, 0);
+            return false;
+        }
+
         spaceLocation += info[i].length() + 1;
         std::cout << info[i] << std::endl;
     }
- 
+    return true;
 }
 
 int
@@ -92,14 +98,16 @@ main()
         command = buildCommand(buf);
 
         if (command == "BUY") {
-            extractInfo(buf, infoArr, command);
-            std::cout << "Buy command. Crypto type: " << infoArr[0] << " Amount of Crypto: " << infoArr[1] << " Price per Unit: " << infoArr[2] << " User: " << infoArr[3] << std::endl;
-            
+            if(extractInfo(buf, infoArr, command))
+                std::cout << "Buy command. Crypto type: " << infoArr[0] << " Amount of Crypto: " << infoArr[1] << " Price per Unit: " << infoArr[2] << " User: " << infoArr[3] << std::endl;
+            else
+                std::cout << "Invalid command: Missing information" << std::endl;
         }
         else if (command == "SELL") {
-            extractInfo(buf, infoArr, command);
+            if (extractInfo(buf, infoArr, command))
             std::cout << "Sell command. Crypto type: " << infoArr[0] << " Amount of Crypto: " << infoArr[1] << " Price per Unit: " << infoArr[2] << " User: " << infoArr[3] << std::endl;
-
+            else
+                std::cout << "Invalid command: Missing information" << std::endl;
         }
         else if (command == "LIST") {
             std::cout << "List command." << std::endl;
