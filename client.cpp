@@ -7,7 +7,7 @@
 #include <unistd.h>
 #include <string.h>
 
-#define SERVER_PORT 5432
+#define SERVER_PORT 2026
 #define MAX_LINE 256
 
 int
