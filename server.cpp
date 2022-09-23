@@ -70,7 +70,7 @@ int main()
                 if(users is empty)
                         results in an error
         */
-        sql = "INSERT INTO users VALUES (1, 'amongsus@gmail.com', 'Among', 'Sus', 'amongSus', 'password', 100)"; // check if table is empty, i.e. no entries
+        sql = "INSERT INTO users VALUES (1, 'cis427@gmail.com', 'John', 'Smith', 'J_Smith', 'password', 100)"; // check if table is empty, i.e. no entries
 
         /* Execute SQL statement */
         rc = sqlite3_exec(db, sql, callback, (void*)data, &zErrMsg);
