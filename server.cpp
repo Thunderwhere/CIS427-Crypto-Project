@@ -10,22 +10,22 @@
 #include <string>
 #include <iostream>
 
-#define SERVER_PORT  1879
+#define SERVER_PORT  2026
 #define MAX_PENDING  5
 #define MAX_LINE     256
 
 std::string buildCommand(char line[]) {
     std::string command = "";
-    int i = 0;
     std::cout << "entered function" << std::endl;
-    while (line[i] != ' ') {
+    size_t len = strlen(line);
+    for(size_t i = 0; i < len; i++) {
         std::cout << "looping" << std::endl;
+        if (line[i] == ' ' || line[i] == '\n')
+                break;
         command += line[i];
-        i++;
     }
     std::cout << "out of function loop" << std::endl;
     return command;
-
 }
 
 static int callback(void *data, int argc, char **argv, char **azColName) {
