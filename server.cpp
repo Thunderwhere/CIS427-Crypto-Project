@@ -84,10 +84,9 @@ int main()
 
         /* Create SQL statement */
         /* Explanation:
-                if(users is empty)
-                        results in an error
+               Attempts to add user at pos 1 if the addition fails, then the table is not empty
         */
-        sql = "INSERT INTO users VALUES (1, 'cis427@gmail.com', 'John', 'Smith', 'J_Smith', 'password', 100)"; // check if table is empty, i.e. no entries
+        sql = "INSERT INTO users VALUES (1, 'cis427@gmail.com', 'John', 'Smith', 'J_Smith', 'password', 100);";
 
         /* Execute SQL statement */
         rc = sqlite3_exec(db, sql, callback, (void*)data, &zErrMsg);
@@ -102,41 +101,41 @@ int main()
         sqlite3_close(db);
 
        /* wait for connection, then receive and print text */
-  while(1) {
-    if ((new_s = accept(s, (struct sockaddr *)&sin, &addr_len)) < 0) {
-      perror("simplex-talk: accept");
-      exit(1);
-    }
-    while (buf_len = recv(new_s, buf, sizeof(buf), 0)) {
-        fputs(buf, stdout);
+        while(1) {
+                if ((new_s = accept(s, (struct sockaddr *)&sin, &addr_len)) < 0) {
+                perror("simplex-talk: accept");
+                exit(1);
+                }
+                while (buf_len = recv(new_s, buf, sizeof(buf), 0)) {
+                fputs(buf, stdout);
 
-        command = buildCommand(buf);
+                command = buildCommand(buf);
 
-        if (command == "BUY") {
-            std::cout << "Buy command." << std::endl;
-        }
-        else if (command == "SELL") {
-            std::cout << "Sell command." << std::endl;
-        }
-        else if (command == "LIST") {
-            std::cout << "List command." << std::endl;
-        }
-        else if (command == "BALANCE") {
-            std::cout << "Balance command." << std::endl;
-        }
-        else if (command == "SHUTDOWN") {
-            std::cout << "Shutdown command." << std::endl;
-            close(new_s);
-            exit(EXIT_FAILURE);
-        }
-        else if (command == "QUIT") {
-            std::cout << "Quit command." << std::endl;
-        }
-        else {
-            std::cout << "Command not recognized" << std::endl;
-        }
-    }
+                if (command == "BUY") {
+                        std::cout << "Buy command." << std::endl;
+                }
+                else if (command == "SELL") {
+                        std::cout << "Sell command." << std::endl;
+                }
+                else if (command == "LIST") {
+                        std::cout << "List command." << std::endl;
+                }
+                else if (command == "BALANCE") {
+                        std::cout << "Balance command." << std::endl;
+                }
+                else if (command == "SHUTDOWN") {
+                        std::cout << "Shutdown command." << std::endl;
+                        close(new_s);
+                        exit(EXIT_FAILURE);
+                }
+                else if (command == "QUIT") {
+                        std::cout << "Quit command." << std::endl;
+                }
+                else {
+                        std::cout << "Command not recognized" << std::endl;
+                }
+                }
 
-    close(new_s);
-  }
+                close(new_s);
+        }
 }
