@@ -7,10 +7,26 @@
 #include <unistd.h>
 #include <string.h>
 #include <sqlite3.h> 
+#include <string>
+#include <iostream>
 
 #define SERVER_PORT  1879
 #define MAX_PENDING  5
 #define MAX_LINE     256
+
+std::string buildCommand(char line[]) {
+    std::string command = "";
+    int i = 0;
+    std::cout << "entered function" << std::endl;
+    while (line[i] != ' ') {
+        std::cout << "looping" << std::endl;
+        command += line[i];
+        i++;
+    }
+    std::cout << "out of function loop" << std::endl;
+    return command;
+
+}
 
 static int callback(void *data, int argc, char **argv, char **azColName) {
         int i;
@@ -29,6 +45,7 @@ int main()
         char buf[MAX_LINE];
         socklen_t buf_len, addr_len;
         int s, new_s;
+        std::string command = "";
 
         /* build address data structure */
         bzero((char *)&sin, sizeof(sin));
@@ -84,16 +101,42 @@ int main()
         }
         sqlite3_close(db);
 
-        /* wait for connection, then receive and print text */
-        while(1) {
-                if ((new_s = accept(s, (struct sockaddr *)&sin, &addr_len)) < 0) {
-                        perror("simplex-talk: accept");
-                        exit(1);
-                }
-                while (buf_len = recv(new_s, buf, sizeof(buf), 0)) {
-                        printf("s: ");
-                        fputs(buf, stdout);
-                }
-                close(new_s);
+       /* wait for connection, then receive and print text */
+  while(1) {
+    if ((new_s = accept(s, (struct sockaddr *)&sin, &addr_len)) < 0) {
+      perror("simplex-talk: accept");
+      exit(1);
+    }
+    while (buf_len = recv(new_s, buf, sizeof(buf), 0)) {
+        fputs(buf, stdout);
+
+        command = buildCommand(buf);
+
+        if (command == "BUY") {
+            std::cout << "Buy command." << std::endl;
         }
+        else if (command == "SELL") {
+            std::cout << "Sell command." << std::endl;
+        }
+        else if (command == "LIST") {
+            std::cout << "List command." << std::endl;
+        }
+        else if (command == "BALANCE") {
+            std::cout << "Balance command." << std::endl;
+        }
+        else if (command == "SHUTDOWN") {
+            std::cout << "Shutdown command." << std::endl;
+            close(new_s);
+            exit(EXIT_FAILURE);
+        }
+        else if (command == "QUIT") {
+            std::cout << "Quit command." << std::endl;
+        }
+        else {
+            std::cout << "Command not recognized" << std::endl;
+        }
+    }
+
+    close(new_s);
+  }
 }
