@@ -1,3 +1,12 @@
+// Standard C++ headers
+#include <iostream>
+#include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+
+
+// Server Port/Socket/Addr related headers
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -5,58 +14,83 @@
 #include <netdb.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <string.h>
 
-#define SERVER_PORT 2026
+#define SERVER_PORT 9909
 #define MAX_LINE 256
 
-int
-main(int argc, char * argv[])
-{
-  FILE *fp;
-  struct hostent *hp;
-  struct sockaddr_in sin;
-  char *host;
-  char buf[MAX_LINE];
-  int s;
-  int len;
+int main(int argc, char* argv[]) {
+    struct hostent* hp;
+    struct sockaddr_in srv;
+    char* host;
+    char buf[MAX_LINE];
+    int nClientSocket;
+    int len;
+    int nRet;
 
-  if (argc==2) {
-    host = argv[1];
-  }
-  else {
-    fprintf(stderr, "usage: simplex-talk host\n");
-    exit(1);
-  }
 
-  /* translate host name into peer's IP address */
-  hp = gethostbyname(host);
-  if (!hp) {
-    fprintf(stderr, "simplex-talk: unknown host: %s\n", host);
-    exit(1);
-  }
+    // Check if user input host
+    if (argc == 2) {
+        host = argv[1];
+    }
+    else {
+        std::cout << "Error > Did not give host argument\nUsage: ./client <host>\n\n";
+        exit(EXIT_FAILURE);
+    }
 
-  /* build address data structure */
-  bzero((char *)&sin, sizeof(sin));
-  sin.sin_family = AF_INET;
-  bcopy(hp->h_addr, (char *)&sin.sin_addr, hp->h_length);
-  sin.sin_port = htons(SERVER_PORT);
 
-  /* active open */
-  if ((s = socket(PF_INET, SOCK_STREAM, 0)) < 0) {
-    perror("simplex-talk: socket");
-    exit(1);
-  }
-  if (connect(s, (struct sockaddr *)&sin, sizeof(sin)) < 0)
-  {
-    perror("simplex-talk: connect");
-    close(s);
-    exit(1);
-  }
-  /* main loop: get and send lines of text */
-  while (fgets(buf, sizeof(buf), stdin)) {
-    buf[MAX_LINE-1] = '\0';
-    len = strlen(buf) + 1;
-    send(s, buf, len, 0);
-  }
+    // Translate host name into peer's IP address
+    hp = gethostbyname(host);
+    if (!hp) {
+        std::cout << "Host Unknown\n\n";
+        exit(EXIT_FAILURE);
+    }
+    else {
+        std::cout << "Host Known\n\n";
+    }
+
+
+    // active open
+    nClientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (nClientSocket < 0) {
+        std::cout << "Socket not Opened\n";
+        exit(EXIT_FAILURE);
+    }
+    else {
+        std::cout << "Socket Opened: " << nClientSocket << std::endl;
+    }
+
+
+    // Build address data structure
+    bzero((char*)&srv, sizeof(srv));
+    srv.sin_family = AF_INET;
+    bcopy(hp->h_addr, (char*)&srv.sin_addr, hp->h_length);
+    srv.sin_port = htons(SERVER_PORT);
+    memset(&srv.sin_zero, 0, 8);
+
+
+    nRet = connect(nClientSocket, (struct sockaddr*)&srv, sizeof(srv));
+    if (nRet < 0)
+    {
+        std::cout << "Connection failed\n";
+        close(nClientSocket);
+        std::cout << "Closed socket: " << nClientSocket << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    else {
+        std::cout << "Connected to the server\n";
+        char buf[255] = { 0 };
+        
+        //Recive is a blocking call
+        //recv(nClientSocket, buf, 255, 0);
+        //std::cout << buf << std::endl;
+
+        std::cout << "Client: ";
+        while (1) {
+            fgets(buf, 256, stdin);
+            send(nClientSocket, buf, 256, 0);
+            recv(nClientSocket, buf, 256, 0);
+            std::cout << "Server: " << buf << std::endl;
+            std::cout << "Client: ";
+        }
+    }
 }
