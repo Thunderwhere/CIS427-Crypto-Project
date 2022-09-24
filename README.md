@@ -31,3 +31,4 @@ After compiling both of the files, you can now run them using
 
 ### Hopefully this was enough help to figure it out. If not,
 ### contact me on discord and I might be there (or not, idk).
+### Hopefully the discord webhook will also give updates when git repo is updated
