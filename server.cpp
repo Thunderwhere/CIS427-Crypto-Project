@@ -267,7 +267,7 @@ int main(int argc, char* argv[]) {
                             std::string crypto_balance = resultant;
 
                             // return 200 OK”, the new usd_balance and new crypto_balance;
-                            std::string tempStr = "200 OK\n   BOUGHT: New balance: " + infoArr[1] + " " + crypto_balance + ". USD balance $" + usd_balance;
+                            std::string tempStr = "200 OK\n   BOUGHT: New balance: " + infoArr[0] + " " + crypto_balance + ". USD balance $" + usd_balance;
                             send(nClient, tempStr.c_str(), sizeof(buf), 0);
                         }
                         else {
