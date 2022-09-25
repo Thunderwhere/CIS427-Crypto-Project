@@ -21,7 +21,7 @@ client.cpp
 > g++ client.cpp -o client
 
 server.cpp
-> g++ server.cpp -ldl -pthread sqlite3.o -o server
+> g++ server.cpp -std=c++11 -ldl -pthread sqlite3.o -o server
 
 After compiling both of the files, you can now run them using
 ```
