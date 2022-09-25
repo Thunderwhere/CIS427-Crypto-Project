@@ -27,7 +27,7 @@ std::string buildCommand(char*);
 bool extractInfo(char*, std::string*, std::string);
 static int callback(void*, int, char**, char**);
 
-std::string resultant;
+std::string resultant;  // ~Global var~ for a temp solution
 
 
 /////////////////
@@ -74,7 +74,7 @@ int main(int argc, char* argv[]) {
         crypto_name varchar(10) NOT NULL,\
         crypro_balance DOUBLE,\
         user_id int,\
-        FOREIGN KEY(user_id) REFERENCES Users (ID)\
+        FOREIGN KEY(user_id) REFERENCES users(ID)\
     );";
 
     // Execute cryptos table creation
@@ -192,33 +192,92 @@ int main(int argc, char* argv[]) {
             if (command == "BUY") {
                 if(!extractInfo(buf, infoArr, command)) {
                     std::cout << "Invalid command: Missing information" << std::endl;
+                    send(nClient, "Invalid command: Missing information", sizeof(buf), 0);
                 }
                 else {
                     std::cout << "Recieved: " << buf << std::endl;
+
                     std::string selectedUsr = infoArr[3];
-                            // check if selected user exists in users table 
-                            std::string tempStr = "SELECT IIF(EXISTS(SELECT 1 FROM users WHERE users.ID=" + selectedUsr + "), 'PRESENT', 'NOT_PRESENT') result;";
-                            const char* sql2 = tempStr.c_str();
+                    // check if selected user exists in users table 
+                    std::string sql = "SELECT IIF(EXISTS(SELECT 1 FROM users WHERE users.ID=" + selectedUsr + "), 'PRESENT', 'NOT_PRESENT') result;";
 
-                            /* Execute SQL statement */
-                    rc = sqlite3_exec(db, sql2, callback, (void*)data, &zErrMsg);
+                    /* Execute SQL statement */
+                    rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
 
-                    if( rc != SQLITE_OK ){
+                    if( rc != SQLITE_OK ) {
+                        // user does not exist
                         fprintf(stderr, "SQL error: %s\n", zErrMsg);
                         sqlite3_free(zErrMsg);
                     }
-                    else if (resultant == "PRESENT"){
-                        fprintf(stdout, "User Exists in Users Table!\n");
+                    else if (resultant == "PRESENT") {
+                        fprintf(stdout, "User Exists in Users Table.\n");
+
                         // calculate crypto price
                         double cryptoPrice = stoi(infoArr[1]) * stoi(infoArr[2]);
-                        // deduct price from user balance
-                        // add new record or update record to crypto table
-                        // return 200 OK”, the new usd_balance and new crypto_balance; 
-                        // otherwise, an appropriate message should be displayed, e.g.: Not enough balance, or user 1 doesn’t exist, etc
+
+                        // deduct crypto price from user balance
+                        // check if balance >= crypto price
+                        sql = "SELECT usd_balance FROM users WHERE users.ID=" + selectedUsr;
+                        rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                        std::string usd_balance = resultant;
+
+                         if( rc != SQLITE_OK ) {
+                            fprintf(stderr, "SQL error: %s\n", zErrMsg);
+                            sqlite3_free(zErrMsg);
+                        }
+                        else  if (stoi(usd_balance) >= cryptoPrice) {
+                            std::cout << "Enough in balance to make purchase." << std::endl;
+                            double difference = stoi(usd_balance) - cryptoPrice;
+                            std::string sql = "UPDATE users SET usd_balance=" + std::to_string(difference) + " WHERE ID =" + selectedUsr + ";";
+                            rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+
+                            // add new record or update record to crypto table
+                            sql = "SELECT IIF(EXISTS(SELECT 1 FROM cryptos WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "'), 'RECORD_PRESENT', 'RECORD_NOT_PRESENT') result;";
+                            rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+
+                            if( rc != SQLITE_OK ) {
+                                fprintf(stderr, "SQL error: %s\n", zErrMsg);
+                                sqlite3_free(zErrMsg);
+                            }
+                            else if (resultant == "RECORD_PRESENT"){
+                                std::cout << "A record is already present -> Update" << std::endl;
+                                // update the record
+                                sql = "UPDATE cryptos SET crypto_balance= crypto_balance +" + std::to_string(cryptoPrice) + " WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
+                                rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                                if( rc != SQLITE_OK ) {
+                                    fprintf(stderr, "SQL error: %s\n", zErrMsg);
+                                    sqlite3_free(zErrMsg);
+                                }
+                            }
+                            else {
+                                std::cout << "A record is not present -> Create" << std::endl;
+                                // add the  record
+                                sql = "INSERT INTO cryptos(crypto_name, crypto_balance, user_id) VALUES ('" + infoArr[0] + "', '" + std::to_string(cryptoPrice) + "', '" + selectedUsr + "');";
+                                rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                            }
+
+                            // get new usd_balance
+                            sql = "SELECT usd_balance FROM users WHERE users.ID=" + selectedUsr;
+                            rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                            usd_balance = resultant;
+
+                            // get new crypto_balance
+                            sql = "SELECT crypto_balance FROM cryptos WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
+                            rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                            std::string crypto_balance = resultant;
+
+                            // return 200 OK”, the new usd_balance and new crypto_balance;
+                            std::string tempStr = "200 OK\n   BOUGHT: New balance: " + infoArr[1] + " " + crypto_balance + ". USD balance $" + usd_balance;
+                            send(nClient, tempStr.c_str(), sizeof(buf), 0);
+                        }
+                        else {
+                            std::cout << "Not enough balance." << std::endl;
+                            send(nClient, "Not enough in the user's balance to process order", sizeof(buf), 0);
+                        }
                     }
                     else {
                         fprintf(stdout, "User Does Not Exist in Users Table!\n");
-                        //quit
+                        send(nClient, "User does not exist", sizeof(buf), 0);
                     }
                 }
             }
@@ -249,6 +308,7 @@ int main(int argc, char* argv[]) {
             }
             else {
                 std::cout << "Command not recognized" << std::endl;
+                send(nClient, "Command not recognized", sizeof(buf), 0);
             }
                       
         }
@@ -259,22 +319,23 @@ int main(int argc, char* argv[]) {
 
 std::string buildCommand(char line[]) {
     std::string command = "";
-    std::cout << "entered function" << std::endl;
+    //std::cout << "entered function" << std::endl;
     size_t len = strlen(line);
     for (size_t i = 0; i < len; i++) {
-        std::cout << "looping" << std::endl;
+        //std::cout << "looping" << std::endl;
         if (line[i] == '\n')
             continue;
         if (line[i] == ' ')
             break;
         command += line[i];
     }
-    std::cout << "out of function loop" << std::endl;
+    //std::cout << "out of function loop" << std::endl;
     return command;
 }
 
+
 bool extractInfo(char line[], std::string info[], std::string command) {
-    std::cout << "entered info loop" << std::endl;
+    //std::cout << "entered info loop" << std::endl;
     int l = command.length();
     int spaceLocation = l + 1;
 
@@ -293,16 +354,17 @@ bool extractInfo(char line[], std::string info[], std::string command) {
         }
 
         spaceLocation += info[i].length() + 1;
-        std::cout << info[i] << std::endl;
+        //std::cout << info[i] << std::endl;
     }
     return true;
 }
 
 static int callback(void* NotUsed, int argc, char** argv, char** azColName) {
     int i;
-    for (i = 0; i < argc; i++) {
-        printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
-    }
-    printf("\n");
+    // for (i = 0; i < argc; i++) {
+    //     printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
+    // }
+    // printf("\n");
+    resultant = argv[0];
     return 0;
 }
