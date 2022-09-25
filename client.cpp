@@ -81,8 +81,8 @@ int main(int argc, char* argv[]) {
         char buf[255] = { 0 };
         
         //Recive is a blocking call
-        //recv(nClientSocket, buf, 255, 0);
-        //std::cout << buf << std::endl;
+        recv(nClientSocket, buf, 255, 0);
+        std::cout << buf << std::endl;
 
         while (std::cout << "c: ") {
             fgets(buf, 256, stdin);
