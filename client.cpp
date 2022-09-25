@@ -84,13 +84,12 @@ int main(int argc, char* argv[]) {
         //recv(nClientSocket, buf, 255, 0);
         //std::cout << buf << std::endl;
 
-        std::cout << "Client: ";
-        while (1) {
+        while (std::cout << "c: ") {
             fgets(buf, 256, stdin);
+            std::cout << "s: Recieved: " << buf;
             send(nClientSocket, buf, 256, 0);
             recv(nClientSocket, buf, 256, 0);
-            std::cout << "Server: " << buf << std::endl;
-            std::cout << "Client: ";
+            std::cout << "c: " << buf << std::endl << std::endl;
         }
     }
 }
