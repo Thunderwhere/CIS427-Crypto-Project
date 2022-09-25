@@ -213,7 +213,8 @@ int main(int argc, char* argv[]) {
                         fprintf(stdout, "User Exists in Users Table.\n");
 
                         // calculate crypto price
-                        double cryptoPrice = stoi(infoArr[1]) * stoi(infoArr[2]);
+                        double cryptoPrice = std::stod(infoArr[1]) * std::stod(infoArr[2]);
+                        std::cout << cryptoPrice << std::endl;
 
                         // deduct crypto price from user balance
                         // check if balance >= crypto price
@@ -225,9 +226,9 @@ int main(int argc, char* argv[]) {
                             fprintf(stderr, "SQL error: %s\n", zErrMsg);
                             sqlite3_free(zErrMsg);
                         }
-                        else  if (stoi(usd_balance) >= cryptoPrice) {
+                        else  if (stod(usd_balance) >= cryptoPrice) {
                             std::cout << "Enough in balance to make purchase." << std::endl;
-                            double difference = stoi(usd_balance) - cryptoPrice;
+                            double difference = stod(usd_balance) - cryptoPrice;
                             std::string sql = "UPDATE users SET usd_balance=" + std::to_string(difference) + " WHERE ID =" + selectedUsr + ";";
                             rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
 
@@ -242,7 +243,7 @@ int main(int argc, char* argv[]) {
                             else if (resultant == "RECORD_PRESENT"){
                                 std::cout << "A record is already present -> Update" << std::endl;
                                 // update the record
-                                sql = "UPDATE cryptos SET crypto_balance= crypto_balance +" + std::to_string(cryptoPrice) + " WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
+                                sql = "UPDATE cryptos SET crypto_balance= crypto_balance +" + infoArr[1] + " WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
                                 rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
                                 if( rc != SQLITE_OK ) {
                                     fprintf(stderr, "SQL error: %s\n", zErrMsg);
@@ -252,7 +253,7 @@ int main(int argc, char* argv[]) {
                             else {
                                 std::cout << "A record is not present -> Create" << std::endl;
                                 // add the  record
-                                sql = "INSERT INTO cryptos(crypto_name, crypto_balance, user_id) VALUES ('" + infoArr[0] + "', '" + std::to_string(cryptoPrice) + "', '" + selectedUsr + "');";
+                                sql = "INSERT INTO cryptos(crypto_name, crypto_balance, user_id) VALUES ('" + infoArr[0] + "', '" + infoArr[1] + "', '" + selectedUsr + "');";
                                 rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
                             }
 
@@ -267,7 +268,7 @@ int main(int argc, char* argv[]) {
                             std::string crypto_balance = resultant;
 
                             // return 200 OK”, the new usd_balance and new crypto_balance;
-                            std::string tempStr = "200 OK\n   BOUGHT: New balance: " + infoArr[0] + " " + crypto_balance + ". USD balance $" + usd_balance;
+                            std::string tempStr = "200 OK\n   BOUGHT: New balance: " + crypto_balance + " " + infoArr[0] + ". USD balance $" + usd_balance;
                             send(nClient, tempStr.c_str(), sizeof(buf), 0);
                         }
                         else {
