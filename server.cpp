@@ -394,6 +394,39 @@ int main(int argc, char* argv[]) {
             }
             else if (command == "BALANCE") {
                 std::cout << "Balance command." << std::endl;
+                // check if user exists
+                std::string sql = "SELECT IIF(EXISTS(SELECT 1 FROM users WHERE users.ID=1), 'PRESENT', 'NOT_PRESENT') result;";
+
+                /* Execute SQL statement */
+                rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+
+                if( rc != SQLITE_OK ) {
+                    // user does not exist
+                    fprintf(stderr, "SQL error: %s\n", zErrMsg);
+                    sqlite3_free(zErrMsg);
+                    send(nClient, "400 invalid command", sizeof(buf), 0);
+                }
+                else if (resultant == "PRESENT") {
+                    // outputs balance
+                    sql = "SELECT usd_balance FROM users WHERE users.ID=1";
+                    rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                    std::string usd_balance = resultant;
+
+                    // get full user name
+                    sql = "SELECT first_name FROM users WHERE users.ID=1";
+                    rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                    std::string user_name = resultant;
+
+                    sql = "SELECT last_name FROM users WHERE users.ID=1";
+                    rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                    user_name += " " + resultant;
+
+                    std::string tempStr = "200 OK\n   Balance for user " + user_name + ": $" + usd_balance;
+                    send(nClient, tempStr.c_str(), sizeof(buf), 0);
+                }
+                else {
+                    send(nClient, "User does not exist.", sizeof(buf), 0);
+                }
             }
             else if (command == "SHUTDOWN") {
                 send(nClient, "200 OK", 7, 0);
