@@ -86,7 +86,7 @@ int main(int argc, char* argv[]) {
 
         while (std::cout << "c: ") {
             fgets(buf, 256, stdin);
-            std::cout << "s: Recieved: " << buf;
+            std::cout << "s: Recieved: " << buf;    // This needs to be sent from the server
             send(nClientSocket, buf, 256, 0);
             recv(nClientSocket, buf, 256, 0);
             std::cout << "c: " << buf << std::endl << std::endl;
