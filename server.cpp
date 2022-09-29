@@ -188,9 +188,9 @@ int main(int argc, char* argv[]) {
             send(nClient, "Got the connection done successfully", 37, 0);
         }
 
-
         while ((buf_len = (recv(nClient, buf, sizeof(buf), 0)))) {
-
+            
+            std::cout << "s: Recieved: " << buf;    // This needs to be sent from the server
             command = buildCommand(buf);
             /* 
                 THE BUY COMMAND:
