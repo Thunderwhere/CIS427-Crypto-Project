@@ -196,19 +196,19 @@ int main(int argc, char* argv[]) {
                 THE BUY COMMAND:
                     1. Check if the command was used properly
                         - Return an error if not used properly
-                        - Else continue
+                        - Otherwise, continue
                     2. Check if the client-selected user exists in the users table
                         - Return an error if the user does not exist
-                        - Else, continue
+                        - Otherwise, continue
                     3. Calculate the crypto transaction price
                     4. Get the user's usd balance
                     5. Check if the user can afford the transaction
                         - If they cannot, return an error
-                        - Else, continue
+                        - Otherwise, continue
                     6. Update the user's balance in the users table
                     7. Check the cryptos table if there already exists a record of the selected crypto
                         - If there exists a record, update the record
-                        - Else, create a new record
+                        - Otherwise, create a new record
                     8. The command completed successfully, return 200 OK, the new usd_balance and new crypto_balance
             */
             if (command == "BUY") {
@@ -325,7 +325,25 @@ int main(int argc, char* argv[]) {
                     }
                 }
             }
+             /* 
+                THE SELL COMMAND:
+                    1. Check if the command was used properly
+                        - Return an error if not used properly. Otherwise continue
+                    2. Check if the client-selected user exists in the users table
+                        - Return an error if the user does not exist. Otherwise, continue
+                    3. Check if the user owns the selected coin
+                        - Return an error if they do not own the coin. Otherwise, continue
+                    4. Check if the user has enough of the selected coin to sell
+                        - Return an error if they don't. Otherwise, continue
+                    5. Update the users table
+                        a. Increase the user's usd balance
+                    6. Update the cryptos table
+                        a. Decrease the user's crypto balance
+                    7. If this stage is reached, the sell command has completed successfully
+                        - return 200 ok, the new cryptos balance, and the new usd balance
+            */
             else if (command == "SELL") {
+                // Check if the client used the command properly
                 if(!extractInfo(buf, infoArr, command)) {
                     std::cout << "Invalid command: Missing information" << std::endl;   // Might need to remove
                     send(nClient, "400 invalid command: Missing information", sizeof(buf), 0);
@@ -333,57 +351,58 @@ int main(int argc, char* argv[]) {
                 else {
                     std::cout << "Recieved: " << buf << std::endl;
                     std::string selectedUsr = infoArr[3];
-                    // check if selected user exists in users table 
+                    // Check if the selected user exists in users table 
                     std::string sql = "SELECT IIF(EXISTS(SELECT 1 FROM users WHERE users.ID=" + selectedUsr + "), 'PRESENT', 'NOT_PRESENT') result;";
 
                     /* Execute SQL statement */
                     rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
 
                     if( rc != SQLITE_OK ) {
-                        // user does not exist
                         fprintf(stderr, "SQL error: %s\n", zErrMsg);
                         sqlite3_free(zErrMsg);
                         send(nClient, "400 invalid command", sizeof(buf), 0);
                     }
                     else if (resultant == "PRESENT") {
-                        fprintf(stdout, "User Exists in Users Table.\n");   // Might need to remove
-
                         // Check if the user owns the selected coin
                         sql = "SELECT IIF(EXISTS(SELECT 1 FROM cryptos WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "'), 'RECORD_PRESENT', 'RECORD_NOT_PRESENT') result;";
                         rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
 
                         if( rc != SQLITE_OK ) {
-                            // user does not exist
                             fprintf(stderr, "SQL error: %s\n", zErrMsg);
                             sqlite3_free(zErrMsg);
                             send(nClient, "400 invalid command", sizeof(buf), 0);
                         }
                         else if (resultant == "RECORD_NOT_PRESENT") {
-                            // return: user doesn't own the selected coin
+                            // Return: user doesn't own the selected coin
                             send(nClient, "User does not own this coin.", sizeof(buf), 0);
-                            fprintf(stdout, "User does not own this coin.\n");   // Might need to remove
                         }
                         else {
                             // Check if the user has enough of the selected coin to sell
-                            fprintf(stdout, "User does own this coin.\n");   // Might need to remove
-                            double coins_to_sell = std::stod(infoArr[1]);
+                            double numCoinsToSell = std::stod(infoArr[1]);
+                            // Get the number of coins the user owns of the selected coin
                             sql = "SELECT crypto_balance FROM cryptos WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
                             rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+
+                            if( rc != SQLITE_OK ) {
+                                fprintf(stderr, "SQL error: %s\n", zErrMsg);
+                                sqlite3_free(zErrMsg);
+                                send(nClient, "400 invalid command", sizeof(buf), 0);
+                            }
+
                             double crypto_balance = std::stod(resultant);
-                            if (crypto_balance < coins_to_sell) {
-                                // return: error, not enough coins in balance to sell
+                            // Not enough coins in balance to sell
+                            if (crypto_balance < numCoinsToSell) {
                                 send(nClient, "Error: Attempting to sell more coins than the user.", sizeof(buf), 0);
-                                fprintf(stdout, "Attempting to sell more coins than the user owns.\n");   // Might need to remove
                             }
                             else {
-                                fprintf(stdout, "User has enough to sell the coins.\n");   // Might need to remove
                                 // Get dollar amount to sell
                                 double cryptoPrice = std::stod(infoArr[1]) * std::stod(infoArr[2]);
 
                                 /* Update users table */
-                                // Add amount to user's balance
+                                // Add new amount to user's balance
                                 sql = "UPDATE users SET usd_balance= usd_balance +" + std::to_string(cryptoPrice) + " WHERE users.ID='" + selectedUsr + "';";
                                 rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+
                                 if( rc != SQLITE_OK ) {
                                     fprintf(stderr, "SQL error: %s\n", zErrMsg);
                                     sqlite3_free(zErrMsg);
@@ -391,7 +410,8 @@ int main(int argc, char* argv[]) {
                                 }
 
                                 /* Update cryptos table */
-                                sql = "UPDATE cryptos SET crypto_balance= crypto_balance -" + std::to_string(coins_to_sell) + " WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
+                                // Remove the sold coins from cryptos
+                                sql = "UPDATE cryptos SET crypto_balance= crypto_balance -" + std::to_string(numCoinsToSell) + " WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
                                 rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
 
                                 if( rc != SQLITE_OK ) {
@@ -400,17 +420,19 @@ int main(int argc, char* argv[]) {
                                     send(nClient, "400 invalid command", sizeof(buf), 0);
                                 }
 
-                                // if the new balance is zero, should we delete the record in cryptos?
+                                // Question: if the new balance is zero, should we delete the record in cryptos?
 
-                                // get new usd_balance
+                                // Get new usd_balance
                                 sql = "SELECT usd_balance FROM users WHERE users.ID=" + selectedUsr;
                                 rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
                                 std::string usd_balance = resultant;
 
-                                // get new crypto_balance
+                                // Get new crypto_balance
                                 sql = "SELECT crypto_balance FROM cryptos WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
                                 rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
                                 std::string crypto_balance = resultant;
+
+                                // Sell command completed successfully
                                 std::string tempStr = "200 OK\n   SOLD: New balance: " + crypto_balance + " " +  infoArr[0] + ". USD $" + usd_balance;
                                 send(nClient, tempStr.c_str(), sizeof(buf), 0);
                             }
