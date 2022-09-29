@@ -184,13 +184,12 @@ int main(int argc, char* argv[]) {
             exit(1);
         }
         else {
-            std::cout << "Client connected on socket: " << nClient;
+            std::cout << "Client connected on socket: " << nClient << std::endl;
             send(nClient, "Got the connection done successfully", 37, 0);
         }
 
 
-        while (buf_len = recv(nClient, buf, sizeof(buf), 0)) {
-            fputs(buf, stdout);
+        while ((buf_len = (recv(nClient, buf, sizeof(buf), 0)))) {
 
             command = buildCommand(buf);
             
@@ -227,6 +226,7 @@ int main(int argc, char* argv[]) {
                         sql = "SELECT usd_balance FROM users WHERE users.ID=" + selectedUsr;
                         rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
                         std::string usd_balance = resultant;
+                        std::cout << usd_balance << std::endl;
 
                          if( rc != SQLITE_OK ) {
                             fprintf(stderr, "SQL error: %s\n", zErrMsg);
@@ -391,6 +391,21 @@ int main(int argc, char* argv[]) {
             }
             else if (command == "LIST") {
                 std::cout << "List command." << std::endl;
+                // List all records in cryptos table for user_id = 1
+                std::string sql = "SELECT * FROM cryptos WHERE cryptos.user_id=1";
+
+                /* Execute SQL statement */
+                rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+
+                if( rc != SQLITE_OK ) {
+                    // user does not exist
+                    fprintf(stderr, "SQL error: %s\n", zErrMsg);
+                    sqlite3_free(zErrMsg);
+                    send(nClient, "400 invalid command", sizeof(buf), 0);
+                }
+
+                std::string sendStr = "200 OK\n   The list of records in the Crypto database for user 1:\n   " + resultant;
+                send(nClient, sendStr.c_str(), sizeof(buf), 0);
             }
             else if (command == "BALANCE") {
                 std::cout << "Balance command." << std::endl;
@@ -407,7 +422,7 @@ int main(int argc, char* argv[]) {
                     send(nClient, "400 invalid command", sizeof(buf), 0);
                 }
                 else if (resultant == "PRESENT") {
-                    // outputs balance
+                    // outputs balance for user 1
                     sql = "SELECT usd_balance FROM users WHERE users.ID=1";
                     rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
                     std::string usd_balance = resultant;
@@ -449,10 +464,8 @@ int main(int argc, char* argv[]) {
             else {
                 std::cout << "Command not recognized" << std::endl;
                 send(nClient, "400 invalid command", 20, 0);
-            }
-                      
+            }           
         }
-
     }
     close(nClient);
 }
@@ -472,7 +485,6 @@ std::string buildCommand(char line[]) {
     //std::cout << "out of function loop" << std::endl;
     return command;
 }
-
 
 bool extractInfo(char line[], std::string info[], std::string command) {
     //std::cout << "entered info loop" << std::endl;
@@ -494,17 +506,28 @@ bool extractInfo(char line[], std::string info[], std::string command) {
         }
 
         spaceLocation += info[i].length() + 1;
-        //std::cout << info[i] << std::endl;
     }
     return true;
 }
 
 static int callback(void* NotUsed, int argc, char** argv, char** azColName) {
-    int i;
-    // for (i = 0; i < argc; i++) {
-    //     printf("%s = %s\n", azColName[i], argv[i] ? argv[i] : "NULL");
-    // }
-    // printf("\n");
-    resultant = argv[0];
+
+    if (argc == 1) {
+        resultant = argv[0];
+        return 0;
+    }
+
+    // mainly for the LIST command
+    for (int i = 0; i < argc; i++) {
+        if (resultant == "")
+            resultant = argv[i];
+        else
+            resultant = resultant + " " + argv[i];
+            
+        // new line btwn every record
+        if (i == 3)
+            resultant += "\n  ";
+    }
+
     return 0;
 }
