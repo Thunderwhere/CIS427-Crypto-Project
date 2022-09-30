@@ -17,7 +17,7 @@
 
 // SQLite3 related headers/definitions
 #include "sqlite3.h"
-#define SERVER_PORT  9909
+#define SERVER_PORT  42069
 #define MAX_PENDING  5
 #define MAX_LINE     256
 
@@ -446,6 +446,7 @@ int main(int argc, char* argv[]) {
             }
             else if (command == "LIST") {
                 std::cout << "List command." << std::endl;
+                resultant = "";
                 // List all records in cryptos table for user_id = 1
                 std::string sql = "SELECT * FROM cryptos WHERE cryptos.user_id=1";
 
@@ -566,7 +567,6 @@ bool extractInfo(char line[], std::string info[], std::string command) {
 }
 
 static int callback(void* NotUsed, int argc, char** argv, char** azColName) {
-
     if (argc == 1) {
         resultant = argv[0];
         return 0;
@@ -574,6 +574,7 @@ static int callback(void* NotUsed, int argc, char** argv, char** azColName) {
 
     // mainly for the LIST command
     for (int i = 0; i < argc; i++) {
+        std::cout << argv[i] << std::endl;
         if (resultant == "")
             resultant = argv[i];
         else
