@@ -26,8 +26,6 @@
 std::string buildCommand(char*);
 bool extractInfo(char*, std::string*, std::string);
 static int callback(void*, int, char**, char**);
-bool is_double(const std::string& s);
-bool is_int(const std::string& s);
 
 std::string resultant;  // any better solutions than using a global var?
 
@@ -219,116 +217,111 @@ int main(int argc, char* argv[]) {
                     send(nClient, "403 message format error: Missing information", sizeof(buf), 0);
                 }
                 else {
-                    // Needs: a way to check if the user entered a valid command: [COMMAND] [STRING] [DOUBLE] [DOUBLE] [INT]
-                    if (!is_double(infoArr[1]) || !is_double(infoArr[2]) || !is_int(infoArr[3])) {
+                    //std::cout << "Recieved: " << buf << std::endl;   // Might need to move up top to like line 191/192
+                    // Check if selected user exists in users table 
+                    std::string selectedUsr = infoArr[3];
+                    std::string sql = "SELECT IIF(EXISTS(SELECT 1 FROM users WHERE users.ID=" + selectedUsr + "), 'PRESENT', 'NOT_PRESENT') result;";
+                    rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+
+                    if( rc != SQLITE_OK ) {
+                        fprintf(stderr, "SQL error: %s\n", zErrMsg);
+                        sqlite3_free(zErrMsg);
                         send(nClient, "403 message format error", 25, 0);
                     }
-                    else {
-                        // Check if selected user exists in users table 
-                        std::string selectedUsr = infoArr[3];
-                        std::string sql = "SELECT IIF(EXISTS(SELECT 1 FROM users WHERE users.ID=" + selectedUsr + "), 'PRESENT', 'NOT_PRESENT') result;";
-                        rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                    else if (resultant == "PRESENT") {
+                        // USER EXISTS
+                        fprintf(stdout, "User Exists in Users Table.\n");   // Might need to remove
 
-                        if( rc != SQLITE_OK ) {
+                        // Calculate crypto price
+                        double cryptoPrice = std::stod(infoArr[1]) * std::stod(infoArr[2]);
+
+                        // Get the usd balance of the user
+                        sql = "SELECT usd_balance FROM users WHERE users.ID=" + selectedUsr;
+                        rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                        std::string usd_balance = resultant;
+
+                         if( rc != SQLITE_OK ) {
                             fprintf(stderr, "SQL error: %s\n", zErrMsg);
                             sqlite3_free(zErrMsg);
                             send(nClient, "403 message format error", 25, 0);
                         }
-                        else if (resultant == "PRESENT") {
-                            // USER EXISTS
-                            fprintf(stdout, "User Exists in Users Table.\n");   // Might need to remove
-
-                            // Calculate crypto price
-                            double cryptoPrice = std::stod(infoArr[1]) * std::stod(infoArr[2]);
-
-                            // Get the usd balance of the user
-                            sql = "SELECT usd_balance FROM users WHERE users.ID=" + selectedUsr;
+                        else if (stod(usd_balance) >= cryptoPrice) {    // User has enough in balance to make the purchase
+                            // Update usd_balance with new balance
+                            double difference = stod(usd_balance) - cryptoPrice;
+                            std::string sql = "UPDATE users SET usd_balance=" + std::to_string(difference) + " WHERE ID =" + selectedUsr + ";";
                             rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
-                            std::string usd_balance = resultant;
 
                             if( rc != SQLITE_OK ) {
                                 fprintf(stderr, "SQL error: %s\n", zErrMsg);
                                 sqlite3_free(zErrMsg);
                                 send(nClient, "403 message format error", 25, 0);
                             }
-                            else if (stod(usd_balance) >= cryptoPrice) {    // User has enough in balance to make the purchase
-                                // Update usd_balance with new balance
-                                double difference = stod(usd_balance) - cryptoPrice;
-                                std::string sql = "UPDATE users SET usd_balance=" + std::to_string(difference) + " WHERE ID =" + selectedUsr + ";";
-                                rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
 
-                                if( rc != SQLITE_OK ) {
-                                    fprintf(stderr, "SQL error: %s\n", zErrMsg);
-                                    sqlite3_free(zErrMsg);
-                                    send(nClient, "403 message format error", 25, 0);
-                                }
+                            // Add new record or update record to crypto table
+                            // Checks if record already exists in cryptos
+                            sql = "SELECT IIF(EXISTS(SELECT 1 FROM cryptos WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "'), 'RECORD_PRESENT', 'RECORD_NOT_PRESENT') result;";
+                            rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
 
-                                // Add new record or update record to crypto table
-                                // Checks if record already exists in cryptos
-                                sql = "SELECT IIF(EXISTS(SELECT 1 FROM cryptos WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "'), 'RECORD_PRESENT', 'RECORD_NOT_PRESENT') result;";
-                                rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
-
-                                if( rc != SQLITE_OK ) {
-                                    fprintf(stderr, "SQL error: %s\n", zErrMsg);
-                                    sqlite3_free(zErrMsg);
-                                    send(nClient, "403 message format error", 25, 0);
-                                }
-                                else if (resultant == "RECORD_PRESENT"){
-                                    // A record exists, so update the record
-                                    sql = "UPDATE cryptos SET crypto_balance= crypto_balance +" + infoArr[1] + " WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
-                                    rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
-                                    if( rc != SQLITE_OK ) {
-                                        fprintf(stderr, "SQL error: %s\n", zErrMsg);
-                                        sqlite3_free(zErrMsg);
-                                        send(nClient, "403 message format error", 25, 0);
-                                    }
-                                }
-                                else {
-                                    // A record does not exist, so add a record
-                                    sql = "INSERT INTO cryptos(crypto_name, crypto_balance, user_id) VALUES ('" + infoArr[0] + "', '" + infoArr[1] + "', '" + selectedUsr + "');";
-                                    rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
-                                    if( rc != SQLITE_OK ) {
-                                        fprintf(stderr, "SQL error: %s\n", zErrMsg);
-                                        sqlite3_free(zErrMsg);
-                                        send(nClient, "403 message format error", 25, 0);
-                                    }
-                                }
-
-                                // Get the new usd_balance
-                                sql = "SELECT usd_balance FROM users WHERE users.ID=" + selectedUsr;
-                                rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
-                                usd_balance = resultant;
-                                if( rc != SQLITE_OK ) {
-                                    fprintf(stderr, "SQL error: %s\n", zErrMsg);
-                                    sqlite3_free(zErrMsg);
-                                    send(nClient, "403 message format error", 25, 0);
-                                }
-
-                                // Get the new crypto_balance
-                                sql = "SELECT crypto_balance FROM cryptos WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
+                            if( rc != SQLITE_OK ) {
+                                fprintf(stderr, "SQL error: %s\n", zErrMsg);
+                                sqlite3_free(zErrMsg);
+                                send(nClient, "403 message format error", 25, 0);
+                            }
+                            else if (resultant == "RECORD_PRESENT"){
+                                // A record exists, so update the record
+                                sql = "UPDATE cryptos SET crypto_balance= crypto_balance +" + infoArr[1] + " WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
                                 rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
                                 if( rc != SQLITE_OK ) {
                                     fprintf(stderr, "SQL error: %s\n", zErrMsg);
                                     sqlite3_free(zErrMsg);
                                     send(nClient, "403 message format error", 25, 0);
                                 }
-                                std::string crypto_balance = resultant;
-
-                                // The command completed successfully, return 200 OK, the new usd_balance and new crypto_balance
-                                std::string tempStr = "200 OK\n   BOUGHT: New balance: " + crypto_balance + " " + infoArr[0] + ". USD balance $" + usd_balance;
-                                send(nClient, tempStr.c_str(), sizeof(buf), 0);
                             }
                             else {
-                                //std::cout << "Not enough balance." << std::endl;
-                                send(nClient, "403 message format error: not enough USD", sizeof(buf), 0);
+                                // A record does not exist, so add a record
+                                sql = "INSERT INTO cryptos(crypto_name, crypto_balance, user_id) VALUES ('" + infoArr[0] + "', '" + infoArr[1] + "', '" + selectedUsr + "');";
+                                rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                                if( rc != SQLITE_OK ) {
+                                    fprintf(stderr, "SQL error: %s\n", zErrMsg);
+                                    sqlite3_free(zErrMsg);
+                                    send(nClient, "403 message format error", 25, 0);
+                                }
                             }
-                        }
-                        else {
-                            // USER DOES NOT EXIST
-                            fprintf(stdout, "User Does Not Exist in Users Table!\n");
-                            std::string tempStr = "403 message format error: user " + selectedUsr + " does not exist";
+
+                            // Get the new usd_balance
+                            sql = "SELECT usd_balance FROM users WHERE users.ID=" + selectedUsr;
+                            rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                            usd_balance = resultant;
+                            if( rc != SQLITE_OK ) {
+                                fprintf(stderr, "SQL error: %s\n", zErrMsg);
+                                sqlite3_free(zErrMsg);
+                                send(nClient, "403 message format error", 25, 0);
+                            }
+
+                            // Get the new crypto_balance
+                            sql = "SELECT crypto_balance FROM cryptos WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
+                            rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                            if( rc != SQLITE_OK ) {
+                                fprintf(stderr, "SQL error: %s\n", zErrMsg);
+                                sqlite3_free(zErrMsg);
+                                send(nClient, "403 message format error", 25, 0);
+                            }
+                            std::string crypto_balance = resultant;
+
+                            // The command completed successfully, return 200 OK, the new usd_balance and new crypto_balance
+                            std::string tempStr = "200 OK\n   BOUGHT: New balance: " + crypto_balance + " " + infoArr[0] + ". USD balance $" + usd_balance;
                             send(nClient, tempStr.c_str(), sizeof(buf), 0);
                         }
+                        else {
+                            //std::cout << "Not enough balance." << std::endl;
+                            send(nClient, "403 message format error: not enough USD", sizeof(buf), 0);
+                        }
+                    }
+                    else {
+                        // USER DOES NOT EXIST
+                        fprintf(stdout, "User Does Not Exist in Users Table!\n");
+                        std::string tempStr = "403 message format error: user " + selectedUsr + " does not exist";
+                        send(nClient, tempStr.c_str(), sizeof(buf), 0);
                     }
                 }
             }
@@ -350,23 +343,28 @@ int main(int argc, char* argv[]) {
                         - return 200 ok, the new cryptos balance, and the new usd balance
             */
             else if (command == "SELL") {
-                // Needs: a way to check if the user entered a valid command: [COMMAND] [STRING] [DOUBLE] [DOUBLE] [INT]
                 // Check if the client used the command properly
                 if(!extractInfo(buf, infoArr, command)) {
                     std::cout << "Invalid command: Missing information" << std::endl;   // Might need to remove
                     send(nClient, "403 message format error: Missing information", sizeof(buf), 0);
                 }
                 else {
-                    if (!is_double(infoArr[1]) || !is_double(infoArr[2]) || !is_int(infoArr[3])) {
-                        send(nClient, "403 message format error", 25, 0);
-                    }
-                    else {
-                        std::cout << "Recieved: " << buf << std::endl;
-                        std::string selectedUsr = infoArr[3];
-                        // Check if the selected user exists in users table 
-                        std::string sql = "SELECT IIF(EXISTS(SELECT 1 FROM users WHERE users.ID=" + selectedUsr + "), 'PRESENT', 'NOT_PRESENT') result;";
+                    std::cout << "Recieved: " << buf << std::endl;
+                    std::string selectedUsr = infoArr[3];
+                    // Check if the selected user exists in users table 
+                    std::string sql = "SELECT IIF(EXISTS(SELECT 1 FROM users WHERE users.ID=" + selectedUsr + "), 'PRESENT', 'NOT_PRESENT') result;";
 
-                        /* Execute SQL statement */
+                    /* Execute SQL statement */
+                    rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+
+                    if( rc != SQLITE_OK ) {
+                        fprintf(stderr, "SQL error: %s\n", zErrMsg);
+                        sqlite3_free(zErrMsg);
+                        send(nClient, "403 message format error", sizeof(buf), 0);
+                    }
+                    else if (resultant == "PRESENT") {
+                        // Check if the user owns the selected coin
+                        sql = "SELECT IIF(EXISTS(SELECT 1 FROM cryptos WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "'), 'RECORD_PRESENT', 'RECORD_NOT_PRESENT') result;";
                         rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
 
                         if( rc != SQLITE_OK ) {
@@ -374,9 +372,15 @@ int main(int argc, char* argv[]) {
                             sqlite3_free(zErrMsg);
                             send(nClient, "403 message format error", sizeof(buf), 0);
                         }
-                        else if (resultant == "PRESENT") {
-                            // Check if the user owns the selected coin
-                            sql = "SELECT IIF(EXISTS(SELECT 1 FROM cryptos WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "'), 'RECORD_PRESENT', 'RECORD_NOT_PRESENT') result;";
+                        else if (resultant == "RECORD_NOT_PRESENT") {
+                            // Return: user doesn't own the selected coin
+                            send(nClient, "403 message format error: User does not own this coin.", sizeof(buf), 0);
+                        }
+                        else {
+                            // Check if the user has enough of the selected coin to sell
+                            double numCoinsToSell = std::stod(infoArr[1]);
+                            // Get the number of coins the user owns of the selected coin
+                            sql = "SELECT crypto_balance FROM cryptos WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
                             rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
 
                             if( rc != SQLITE_OK ) {
@@ -384,15 +388,19 @@ int main(int argc, char* argv[]) {
                                 sqlite3_free(zErrMsg);
                                 send(nClient, "403 message format error", sizeof(buf), 0);
                             }
-                            else if (resultant == "RECORD_NOT_PRESENT") {
-                                // Return: user doesn't own the selected coin
-                                send(nClient, "403 message format error: User does not own this coin.", sizeof(buf), 0);
+
+                            double crypto_balance = std::stod(resultant);
+                            // Not enough coins in balance to sell
+                            if (crypto_balance < numCoinsToSell) {
+                                send(nClient, "403 message format error: Attempting to sell more coins than the user has.", sizeof(buf), 0);
                             }
                             else {
-                                // Check if the user has enough of the selected coin to sell
-                                double numCoinsToSell = std::stod(infoArr[1]);
-                                // Get the number of coins the user owns of the selected coin
-                                sql = "SELECT crypto_balance FROM cryptos WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
+                                // Get dollar amount to sell
+                                double cryptoPrice = std::stod(infoArr[1]) * std::stod(infoArr[2]);
+
+                                /* Update users table */
+                                // Add new amount to user's balance
+                                sql = "UPDATE users SET usd_balance= usd_balance +" + std::to_string(cryptoPrice) + " WHERE users.ID='" + selectedUsr + "';";
                                 rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
 
                                 if( rc != SQLITE_OK ) {
@@ -401,59 +409,38 @@ int main(int argc, char* argv[]) {
                                     send(nClient, "403 message format error", sizeof(buf), 0);
                                 }
 
-                                double crypto_balance = std::stod(resultant);
-                                // Not enough coins in balance to sell
-                                if (crypto_balance < numCoinsToSell) {
-                                    send(nClient, "403 message format error: Attempting to sell more coins than the user has.", sizeof(buf), 0);
+                                /* Update cryptos table */
+                                // Remove the sold coins from cryptos
+                                sql = "UPDATE cryptos SET crypto_balance= crypto_balance -" + std::to_string(numCoinsToSell) + " WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
+                                rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+
+                                if( rc != SQLITE_OK ) {
+                                    fprintf(stderr, "SQL error: %s\n", zErrMsg);
+                                    sqlite3_free(zErrMsg);
+                                    send(nClient, "403 message format error", sizeof(buf), 0);
                                 }
-                                else {
-                                    // Get dollar amount to sell
-                                    double cryptoPrice = std::stod(infoArr[1]) * std::stod(infoArr[2]);
 
-                                    /* Update users table */
-                                    // Add new amount to user's balance
-                                    sql = "UPDATE users SET usd_balance= usd_balance +" + std::to_string(cryptoPrice) + " WHERE users.ID='" + selectedUsr + "';";
-                                    rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                                // Question: if the new balance is zero, should we delete the record in cryptos?
 
-                                    if( rc != SQLITE_OK ) {
-                                        fprintf(stderr, "SQL error: %s\n", zErrMsg);
-                                        sqlite3_free(zErrMsg);
-                                        send(nClient, "403 message format error", sizeof(buf), 0);
-                                    }
+                                // Get new usd_balance
+                                sql = "SELECT usd_balance FROM users WHERE users.ID=" + selectedUsr;
+                                rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                                std::string usd_balance = resultant;
 
-                                    /* Update cryptos table */
-                                    // Remove the sold coins from cryptos
-                                    sql = "UPDATE cryptos SET crypto_balance= crypto_balance -" + std::to_string(numCoinsToSell) + " WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
-                                    rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                                // Get new crypto_balance
+                                sql = "SELECT crypto_balance FROM cryptos WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
+                                rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                                std::string crypto_balance = resultant;
 
-                                    if( rc != SQLITE_OK ) {
-                                        fprintf(stderr, "SQL error: %s\n", zErrMsg);
-                                        sqlite3_free(zErrMsg);
-                                        send(nClient, "403 message format error", sizeof(buf), 0);
-                                    }
-
-                                    // Question: if the new balance is zero, should we delete the record in cryptos?
-
-                                    // Get new usd_balance
-                                    sql = "SELECT usd_balance FROM users WHERE users.ID=" + selectedUsr;
-                                    rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
-                                    std::string usd_balance = resultant;
-
-                                    // Get new crypto_balance
-                                    sql = "SELECT crypto_balance FROM cryptos WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
-                                    rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
-                                    std::string crypto_balance = resultant;
-
-                                    // Sell command completed successfully
-                                    std::string tempStr = "200 OK\n   SOLD: New balance: " + crypto_balance + " " +  infoArr[0] + ". USD $" + usd_balance;
-                                    send(nClient, tempStr.c_str(), sizeof(buf), 0);
-                                }
+                                // Sell command completed successfully
+                                std::string tempStr = "200 OK\n   SOLD: New balance: " + crypto_balance + " " +  infoArr[0] + ". USD $" + usd_balance;
+                                send(nClient, tempStr.c_str(), sizeof(buf), 0);
                             }
                         }
-                        else {
-                            fprintf(stdout, "User Does Not Exist  in Users Table.\nCannot Process Sell Command.\n");   // Might need to remove
-                            send(nClient, "403 message format error: user does not exist.", sizeof(buf), 0);
-                        }
+                    }
+                    else {
+                        fprintf(stdout, "User Does Not Exist  in Users Table.\nCannot Process Sell Command.\n");   // Might need to remove
+                        send(nClient, "403 message format error: user does not exist.", sizeof(buf), 0);
                     }
                 }
             }
@@ -473,12 +460,7 @@ int main(int argc, char* argv[]) {
                     send(nClient, "403 message format error", sizeof(buf), 0);
                 }
 
-                std::string sendStr;    
-                if (resultant == "")
-                    sendStr = "200 OK\n   User does not own any coins.";
-                else 
-                    sendStr = "200 OK\n   The list of records in the Crypto database for user 1:\n   " + resultant;
-
+                std::string sendStr = "200 OK\n   The list of records in the Crypto database for user 1:\n   " + resultant;
                 send(nClient, sendStr.c_str(), sizeof(buf), 0);
             }
             else if (command == "BALANCE") {
@@ -568,11 +550,16 @@ bool extractInfo(char line[], std::string info[], std::string command) {
     for (int i = 0; i < 4; i++) {
         info[i] = "";
         for (int j = spaceLocation; j < strlen(line); j++) {
+            
             if (line[j] == ' ')
                 break;
             if (line[j] == '\n')
                 break;
             info[i] += line[j];
+            if (i > 0) {
+                if (((int)line[j] > 57 || (int)line[j] < 46) && (int)line[j] != 47)
+                    return false;
+            }
         }
         if (info[i] == "") {
             std::fill_n(info, 4, 0);
@@ -581,6 +568,10 @@ bool extractInfo(char line[], std::string info[], std::string command) {
 
         spaceLocation += info[i].length() + 1;
     }
+    /*if ((int)info[1].substr(0, 1)[0] > 57 || (int)info[2].substr(0, 1)[0] > 57 || (int)info[3].substr(0, 1)[0] > 57)
+        return false;
+    if ((int)info[1].substr(0, 1)[0] < 48 || (int)info[2].substr(0, 1)[0] < 48 || (int)info[3].substr(0, 1)[0] < 48)
+        return false;*/
     return true;
 }
 
@@ -592,6 +583,7 @@ static int callback(void* NotUsed, int argc, char** argv, char** azColName) {
 
     // mainly for the LIST command
     for (int i = 0; i < argc; i++) {
+        //std::cout << argv[i] << std::endl;
         if (resultant == "")
             resultant = argv[i];
         else
@@ -603,26 +595,4 @@ static int callback(void* NotUsed, int argc, char** argv, char** azColName) {
     }
 
     return 0;
-}
-
-bool is_double(const std::string& s)
-{
-    try {
-        std::stod(s);
-    }
-    catch(...) {
-        return false;
-    }
-    return true;
-}
-
-bool is_int(const std::string& s)
-{
-    try {
-        std::stoi(s);
-    }
-    catch(...) {
-        return false;
-    }
-    return true;
 }
