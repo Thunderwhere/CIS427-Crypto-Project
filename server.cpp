@@ -214,7 +214,7 @@ int main(int argc, char* argv[]) {
             if (command == "BUY") {
                 // Checks if the client used the command properly
                 if(!extractInfo(buf, infoArr, command)) {
-                    send(nClient, "400 invalid command: Missing information", sizeof(buf), 0);
+                    send(nClient, "403 message format error: Missing information", sizeof(buf), 0);
                 }
                 else {
                     //std::cout << "Recieved: " << buf << std::endl;   // Might need to move up top to like line 191/192
@@ -226,7 +226,7 @@ int main(int argc, char* argv[]) {
                     if( rc != SQLITE_OK ) {
                         fprintf(stderr, "SQL error: %s\n", zErrMsg);
                         sqlite3_free(zErrMsg);
-                        send(nClient, "400 invalid command", 20, 0);
+                        send(nClient, "403 message format error", 25, 0);
                     }
                     else if (resultant == "PRESENT") {
                         // USER EXISTS
@@ -243,7 +243,7 @@ int main(int argc, char* argv[]) {
                          if( rc != SQLITE_OK ) {
                             fprintf(stderr, "SQL error: %s\n", zErrMsg);
                             sqlite3_free(zErrMsg);
-                            send(nClient, "400 invalid command", 20, 0);
+                            send(nClient, "403 message format error", 25, 0);
                         }
                         else if (stod(usd_balance) >= cryptoPrice) {    // User has enough in balance to make the purchase
                             // Update usd_balance with new balance
@@ -254,7 +254,7 @@ int main(int argc, char* argv[]) {
                             if( rc != SQLITE_OK ) {
                                 fprintf(stderr, "SQL error: %s\n", zErrMsg);
                                 sqlite3_free(zErrMsg);
-                                send(nClient, "400 invalid command", 20, 0);
+                                send(nClient, "403 message format error", 25, 0);
                             }
 
                             // Add new record or update record to crypto table
@@ -265,7 +265,7 @@ int main(int argc, char* argv[]) {
                             if( rc != SQLITE_OK ) {
                                 fprintf(stderr, "SQL error: %s\n", zErrMsg);
                                 sqlite3_free(zErrMsg);
-                                send(nClient, "400 invalid command", 20, 0);
+                                send(nClient, "403 message format error", 25, 0);
                             }
                             else if (resultant == "RECORD_PRESENT"){
                                 // A record exists, so update the record
@@ -274,7 +274,7 @@ int main(int argc, char* argv[]) {
                                 if( rc != SQLITE_OK ) {
                                     fprintf(stderr, "SQL error: %s\n", zErrMsg);
                                     sqlite3_free(zErrMsg);
-                                    send(nClient, "400 invalid command", 20, 0);
+                                    send(nClient, "403 message format error", 25, 0);
                                 }
                             }
                             else {
@@ -284,7 +284,7 @@ int main(int argc, char* argv[]) {
                                 if( rc != SQLITE_OK ) {
                                     fprintf(stderr, "SQL error: %s\n", zErrMsg);
                                     sqlite3_free(zErrMsg);
-                                    send(nClient, "400 invalid command", 20, 0);
+                                    send(nClient, "403 message format error", 25, 0);
                                 }
                             }
 
@@ -295,7 +295,7 @@ int main(int argc, char* argv[]) {
                             if( rc != SQLITE_OK ) {
                                 fprintf(stderr, "SQL error: %s\n", zErrMsg);
                                 sqlite3_free(zErrMsg);
-                                send(nClient, "400 invalid command", 20, 0);
+                                send(nClient, "403 message format error", 25, 0);
                             }
 
                             // Get the new crypto_balance
@@ -304,7 +304,7 @@ int main(int argc, char* argv[]) {
                             if( rc != SQLITE_OK ) {
                                 fprintf(stderr, "SQL error: %s\n", zErrMsg);
                                 sqlite3_free(zErrMsg);
-                                send(nClient, "400 invalid command", 20, 0);
+                                send(nClient, "403 message format error", 25, 0);
                             }
                             std::string crypto_balance = resultant;
 
@@ -314,13 +314,13 @@ int main(int argc, char* argv[]) {
                         }
                         else {
                             //std::cout << "Not enough balance." << std::endl;
-                            send(nClient, "400 invalid command: not enough USD", sizeof(buf), 0);
+                            send(nClient, "403 message format error: not enough USD", sizeof(buf), 0);
                         }
                     }
                     else {
                         // USER DOES NOT EXIST
                         fprintf(stdout, "User Does Not Exist in Users Table!\n");
-                        std::string tempStr = "400 invalid command: user " + selectedUsr + " does not exist";
+                        std::string tempStr = "403 message format error: user " + selectedUsr + " does not exist";
                         send(nClient, tempStr.c_str(), sizeof(buf), 0);
                     }
                 }
@@ -346,7 +346,7 @@ int main(int argc, char* argv[]) {
                 // Check if the client used the command properly
                 if(!extractInfo(buf, infoArr, command)) {
                     std::cout << "Invalid command: Missing information" << std::endl;   // Might need to remove
-                    send(nClient, "400 invalid command: Missing information", sizeof(buf), 0);
+                    send(nClient, "403 message format error: Missing information", sizeof(buf), 0);
                 }
                 else {
                     std::cout << "Recieved: " << buf << std::endl;
@@ -360,7 +360,7 @@ int main(int argc, char* argv[]) {
                     if( rc != SQLITE_OK ) {
                         fprintf(stderr, "SQL error: %s\n", zErrMsg);
                         sqlite3_free(zErrMsg);
-                        send(nClient, "400 invalid command", sizeof(buf), 0);
+                        send(nClient, "403 message format error", sizeof(buf), 0);
                     }
                     else if (resultant == "PRESENT") {
                         // Check if the user owns the selected coin
@@ -370,11 +370,11 @@ int main(int argc, char* argv[]) {
                         if( rc != SQLITE_OK ) {
                             fprintf(stderr, "SQL error: %s\n", zErrMsg);
                             sqlite3_free(zErrMsg);
-                            send(nClient, "400 invalid command", sizeof(buf), 0);
+                            send(nClient, "403 message format error", sizeof(buf), 0);
                         }
                         else if (resultant == "RECORD_NOT_PRESENT") {
                             // Return: user doesn't own the selected coin
-                            send(nClient, "User does not own this coin.", sizeof(buf), 0);
+                            send(nClient, "403 message format error: User does not own this coin.", sizeof(buf), 0);
                         }
                         else {
                             // Check if the user has enough of the selected coin to sell
@@ -386,13 +386,13 @@ int main(int argc, char* argv[]) {
                             if( rc != SQLITE_OK ) {
                                 fprintf(stderr, "SQL error: %s\n", zErrMsg);
                                 sqlite3_free(zErrMsg);
-                                send(nClient, "400 invalid command", sizeof(buf), 0);
+                                send(nClient, "403 message format error", sizeof(buf), 0);
                             }
 
                             double crypto_balance = std::stod(resultant);
                             // Not enough coins in balance to sell
                             if (crypto_balance < numCoinsToSell) {
-                                send(nClient, "Error: Attempting to sell more coins than the user.", sizeof(buf), 0);
+                                send(nClient, "403 message format error: Attempting to sell more coins than the user has.", sizeof(buf), 0);
                             }
                             else {
                                 // Get dollar amount to sell
@@ -406,7 +406,7 @@ int main(int argc, char* argv[]) {
                                 if( rc != SQLITE_OK ) {
                                     fprintf(stderr, "SQL error: %s\n", zErrMsg);
                                     sqlite3_free(zErrMsg);
-                                    send(nClient, "400 invalid command", sizeof(buf), 0);
+                                    send(nClient, "403 message format error", sizeof(buf), 0);
                                 }
 
                                 /* Update cryptos table */
@@ -417,7 +417,7 @@ int main(int argc, char* argv[]) {
                                 if( rc != SQLITE_OK ) {
                                     fprintf(stderr, "SQL error: %s\n", zErrMsg);
                                     sqlite3_free(zErrMsg);
-                                    send(nClient, "400 invalid command", sizeof(buf), 0);
+                                    send(nClient, "403 message format error", sizeof(buf), 0);
                                 }
 
                                 // Question: if the new balance is zero, should we delete the record in cryptos?
@@ -440,7 +440,7 @@ int main(int argc, char* argv[]) {
                     }
                     else {
                         fprintf(stdout, "User Does Not Exist  in Users Table.\nCannot Process Sell Command.\n");   // Might need to remove
-                        send(nClient, "Error: user does not exist.", sizeof(buf), 0);
+                        send(nClient, "403 message format error: user does not exist.", sizeof(buf), 0);
                     }
                 }
             }
@@ -457,7 +457,7 @@ int main(int argc, char* argv[]) {
                     // user does not exist
                     fprintf(stderr, "SQL error: %s\n", zErrMsg);
                     sqlite3_free(zErrMsg);
-                    send(nClient, "400 invalid command", sizeof(buf), 0);
+                    send(nClient, "403 message format error", sizeof(buf), 0);
                 }
 
                 std::string sendStr = "200 OK\n   The list of records in the Crypto database for user 1:\n   " + resultant;
@@ -475,7 +475,7 @@ int main(int argc, char* argv[]) {
                     // user does not exist
                     fprintf(stderr, "SQL error: %s\n", zErrMsg);
                     sqlite3_free(zErrMsg);
-                    send(nClient, "400 invalid command", sizeof(buf), 0);
+                    send(nClient, "403 message format error", sizeof(buf), 0);
                 }
                 else if (resultant == "PRESENT") {
                     // outputs balance for user 1
