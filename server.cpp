@@ -41,8 +41,6 @@ int main(int argc, char* argv[]) {
     char* zErrMsg = 0;
     int rc;
     const char* sql;
-    const char* data = "Callback function called";  //Might not need in the end, as does nothing rn
-
     
     // Open Database and Connect to Database
     rc = sqlite3_open("cis427_crypto.sqlite", &db);
@@ -88,7 +86,7 @@ int main(int argc, char* argv[]) {
     //Something about this does not work properly. Returns "SQL error: UNIQUE constraint failed: users.ID"
     //Actually I think you know this, because the code changed only to insert... Or I'm seeing things.
     sql = "SELECT IIF(EXISTS(SELECT 1 FROM users WHERE  users.ID=1), 'USER_PRESENT', 'USER_NOT_PRESENT') result;";
-    rc = sqlite3_exec(db, sql, callback, (void*)data, &zErrMsg);
+    rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
 
     if( rc != SQLITE_OK ){
         fprintf(stderr, "SQL error: %s\n", zErrMsg);
@@ -99,7 +97,7 @@ int main(int argc, char* argv[]) {
         fprintf(stdout, "No user is present in the users table. Attempting to add a new user.\n");
 
         sql = "INSERT INTO users VALUES (1, 'cis427@gmail.com', 'John', 'Smith', 'J_Smith', 'password', 100);";
-        rc = sqlite3_exec(db, sql, callback, (void*)data, &zErrMsg);
+        rc = sqlite3_exec(db, sql, callback, 0, &zErrMsg);
 
         if( rc != SQLITE_OK ) {
             fprintf(stderr, "SQL error: %s\n", zErrMsg);
@@ -194,7 +192,6 @@ int main(int argc, char* argv[]) {
 
     /* wait for connection, then receive and print text */
     while (1) {
-
         if ((nClient = accept(nSocket, (struct sockaddr*)&srv, &addr_len)) < 0) {
             perror("simplex-talk: accept");
             exit(1);
@@ -206,7 +203,7 @@ int main(int argc, char* argv[]) {
 
         while ((buf_len = (recv(nClient, buf, sizeof(buf), 0)))) {
             
-            std::cout << "s: Recieved: " << buf;    // This needs to be sent from the server
+            std::cout << "s: Recieved: " << buf; 
             command = buildCommand(buf);
             /* 
                 THE BUY COMMAND:
@@ -237,7 +234,7 @@ int main(int argc, char* argv[]) {
                     // Check if selected user exists in users table 
                     std::string selectedUsr = infoArr[3];
                     std::string sql = "SELECT IIF(EXISTS(SELECT 1 FROM users WHERE users.ID=" + selectedUsr + "), 'PRESENT', 'NOT_PRESENT') result;";
-                    rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                    rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
 
                     if( rc != SQLITE_OK ) {
                         fprintf(stderr, "SQL error: %s\n", zErrMsg);
@@ -253,7 +250,7 @@ int main(int argc, char* argv[]) {
 
                         // Get the usd balance of the user
                         sql = "SELECT usd_balance FROM users WHERE users.ID=" + selectedUsr;
-                        rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                        rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
                         std::string usd_balance = resultant;
 
                          if( rc != SQLITE_OK ) {
@@ -265,7 +262,7 @@ int main(int argc, char* argv[]) {
                             // Update usd_balance with new balance
                             double difference = stod(usd_balance) - cryptoPrice;
                             std::string sql = "UPDATE users SET usd_balance=" + std::to_string(difference) + " WHERE ID =" + selectedUsr + ";";
-                            rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                            rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
 
                             if( rc != SQLITE_OK ) {
                                 fprintf(stderr, "SQL error: %s\n", zErrMsg);
@@ -276,7 +273,7 @@ int main(int argc, char* argv[]) {
                             // Add new record or update record to crypto table
                             // Checks if record already exists in cryptos
                             sql = "SELECT IIF(EXISTS(SELECT 1 FROM cryptos WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "'), 'RECORD_PRESENT', 'RECORD_NOT_PRESENT') result;";
-                            rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                            rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
 
                             if( rc != SQLITE_OK ) {
                                 fprintf(stderr, "SQL error: %s\n", zErrMsg);
@@ -286,7 +283,7 @@ int main(int argc, char* argv[]) {
                             else if (resultant == "RECORD_PRESENT"){
                                 // A record exists, so update the record
                                 sql = "UPDATE cryptos SET crypto_balance= crypto_balance +" + infoArr[1] + " WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
-                                rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                                rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
                                 if( rc != SQLITE_OK ) {
                                     fprintf(stderr, "SQL error: %s\n", zErrMsg);
                                     sqlite3_free(zErrMsg);
@@ -296,7 +293,7 @@ int main(int argc, char* argv[]) {
                             else {
                                 // A record does not exist, so add a record
                                 sql = "INSERT INTO cryptos(crypto_name, crypto_balance, user_id) VALUES ('" + infoArr[0] + "', '" + infoArr[1] + "', '" + selectedUsr + "');";
-                                rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                                rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
                                 if( rc != SQLITE_OK ) {
                                     fprintf(stderr, "SQL error: %s\n", zErrMsg);
                                     sqlite3_free(zErrMsg);
@@ -306,7 +303,7 @@ int main(int argc, char* argv[]) {
 
                             // Get the new usd_balance
                             sql = "SELECT usd_balance FROM users WHERE users.ID=" + selectedUsr;
-                            rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                            rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
                             usd_balance = resultant;
                             if( rc != SQLITE_OK ) {
                                 fprintf(stderr, "SQL error: %s\n", zErrMsg);
@@ -316,7 +313,7 @@ int main(int argc, char* argv[]) {
 
                             // Get the new crypto_balance
                             sql = "SELECT crypto_balance FROM cryptos WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
-                            rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                            rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
                             if( rc != SQLITE_OK ) {
                                 fprintf(stderr, "SQL error: %s\n", zErrMsg);
                                 sqlite3_free(zErrMsg);
@@ -371,7 +368,7 @@ int main(int argc, char* argv[]) {
                     std::string sql = "SELECT IIF(EXISTS(SELECT 1 FROM users WHERE users.ID=" + selectedUsr + "), 'PRESENT', 'NOT_PRESENT') result;";
 
                     /* Execute SQL statement */
-                    rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                    rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
 
                     if( rc != SQLITE_OK ) {
                         fprintf(stderr, "SQL error: %s\n", zErrMsg);
@@ -381,7 +378,7 @@ int main(int argc, char* argv[]) {
                     else if (resultant == "PRESENT") {
                         // Check if the user owns the selected coin
                         sql = "SELECT IIF(EXISTS(SELECT 1 FROM cryptos WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "'), 'RECORD_PRESENT', 'RECORD_NOT_PRESENT') result;";
-                        rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                        rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
 
                         if( rc != SQLITE_OK ) {
                             fprintf(stderr, "SQL error: %s\n", zErrMsg);
@@ -397,7 +394,7 @@ int main(int argc, char* argv[]) {
                             double numCoinsToSell = std::stod(infoArr[1]);
                             // Get the number of coins the user owns of the selected coin
                             sql = "SELECT crypto_balance FROM cryptos WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
-                            rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                            rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
 
                             if( rc != SQLITE_OK ) {
                                 fprintf(stderr, "SQL error: %s\n", zErrMsg);
@@ -417,7 +414,7 @@ int main(int argc, char* argv[]) {
                                 /* Update users table */
                                 // Add new amount to user's balance
                                 sql = "UPDATE users SET usd_balance= usd_balance +" + std::to_string(cryptoPrice) + " WHERE users.ID='" + selectedUsr + "';";
-                                rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                                rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
 
                                 if( rc != SQLITE_OK ) {
                                     fprintf(stderr, "SQL error: %s\n", zErrMsg);
@@ -428,7 +425,7 @@ int main(int argc, char* argv[]) {
                                 /* Update cryptos table */
                                 // Remove the sold coins from cryptos
                                 sql = "UPDATE cryptos SET crypto_balance= crypto_balance -" + std::to_string(numCoinsToSell) + " WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
-                                rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                                rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
 
                                 if( rc != SQLITE_OK ) {
                                     fprintf(stderr, "SQL error: %s\n", zErrMsg);
@@ -440,12 +437,12 @@ int main(int argc, char* argv[]) {
 
                                 // Get new usd_balance
                                 sql = "SELECT usd_balance FROM users WHERE users.ID=" + selectedUsr;
-                                rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                                rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
                                 std::string usd_balance = resultant;
 
                                 // Get new crypto_balance
                                 sql = "SELECT crypto_balance FROM cryptos WHERE cryptos.crypto_name='" + infoArr[0] + "' AND cryptos.user_id='" + selectedUsr + "';";
-                                rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                                rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
                                 std::string crypto_balance = resultant;
 
                                 // Sell command completed successfully
@@ -467,7 +464,7 @@ int main(int argc, char* argv[]) {
                 std::string sql = "SELECT * FROM cryptos WHERE cryptos.user_id=1";
 
                 /* Execute SQL statement */
-                rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
 
                 if( rc != SQLITE_OK ) {
                     // user does not exist
@@ -491,7 +488,7 @@ int main(int argc, char* argv[]) {
                 std::string sql = "SELECT IIF(EXISTS(SELECT 1 FROM users WHERE users.ID=1), 'PRESENT', 'NOT_PRESENT') result;";
 
                 /* Execute SQL statement */
-                rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
 
                 if( rc != SQLITE_OK ) {
                     // user does not exist
@@ -502,16 +499,16 @@ int main(int argc, char* argv[]) {
                 else if (resultant == "PRESENT") {
                     // outputs balance for user 1
                     sql = "SELECT usd_balance FROM users WHERE users.ID=1";
-                    rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                    rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
                     std::string usd_balance = resultant;
 
                     // get full user name
                     sql = "SELECT first_name FROM users WHERE users.ID=1";
-                    rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                    rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
                     std::string user_name = resultant;
 
                     sql = "SELECT last_name FROM users WHERE users.ID=1";
-                    rc = sqlite3_exec(db, sql.c_str(), callback, (void*)data, &zErrMsg);
+                    rc = sqlite3_exec(db, sql.c_str(), callback, 0, &zErrMsg);
                     user_name += " " + resultant;
 
                     std::string tempStr = "200 OK\n   Balance for user " + user_name + ": $" + usd_balance;
@@ -533,10 +530,10 @@ int main(int argc, char* argv[]) {
                 exit(EXIT_SUCCESS);
             }
             else if (command == "QUIT") {
-                // Quit might only need to be handled client side?
-                send(nClient, "200 OK", 7, 0);
                 std::cout << "Quit command." << std::endl;
+                send(nClient, "200 OK", 7, 0);
                 close(nClient);
+
                 break;
             }
             else {
@@ -545,6 +542,7 @@ int main(int argc, char* argv[]) {
             }           
         }
     }
+
     close(nClient);
 }
 

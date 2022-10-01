@@ -86,9 +86,20 @@ int main(int argc, char* argv[]) {
 
         while (std::cout << "c: ") {
             fgets(buf, 256, stdin);
+
+            // copies buf to last command
+            char lastCommand[256];
+            strncpy(lastCommand, buf, sizeof(buf));
+
             send(nClientSocket, buf, 256, 0);
             recv(nClientSocket, buf, 256, 0);
             std::cout << "c: " << buf << std::endl << std::endl;
+
+            // checks if last command was QUIT
+            if (strcmp(lastCommand, "QUIT\n") == 0) {
+                close(nClientSocket);   // not sure about this
+                break;
+            }
         }
     }
 }
