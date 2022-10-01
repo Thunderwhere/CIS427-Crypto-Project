@@ -87,15 +87,31 @@ int main(int argc, char* argv[]) {
     //ELSE CREATE NEW USER
     //Something about this does not work properly. Returns "SQL error: UNIQUE constraint failed: users.ID"
     //Actually I think you know this, because the code changed only to insert... Or I'm seeing things.
-    sql = "INSERT INTO users VALUES (1, 'cis427@gmail.com', 'John', 'Smith', 'J_Smith', 'password', 100);";
+    sql = "SELECT IIF(EXISTS(SELECT 1 FROM users WHERE  users.ID=1), 'USER_PRESENT', 'USER_NOT_PRESENT') result;";
     rc = sqlite3_exec(db, sql, callback, (void*)data, &zErrMsg);
 
     if( rc != SQLITE_OK ){
         fprintf(stderr, "SQL error: %s\n", zErrMsg);
         sqlite3_free(zErrMsg);
     }
+    else if (resultant == "USER_NOT_PRESENT") {
+        // Create a user if one doesn't already exist
+        fprintf(stdout, "No user is present in the users table. Attempting to add a new user.\n");
+
+        sql = "INSERT INTO users VALUES (1, 'cis427@gmail.com', 'John', 'Smith', 'J_Smith', 'password', 100);";
+        rc = sqlite3_exec(db, sql, callback, (void*)data, &zErrMsg);
+
+        if( rc != SQLITE_OK ) {
+            fprintf(stderr, "SQL error: %s\n", zErrMsg);
+            sqlite3_free(zErrMsg);
+        }
+        else {
+            fprintf(stdout, "\tA new user was added successfully.\n");
+        }
+    }
     else {
-        fprintf(stdout, "New User Added Successfully\n");
+        // A user is already present in the users table
+        //fprintf(stdout, "User already present.\n");
     }
 
     // Server Variables
@@ -460,7 +476,13 @@ int main(int argc, char* argv[]) {
                     send(nClient, "403 message format error", sizeof(buf), 0);
                 }
 
-                std::string sendStr = "200 OK\n   The list of records in the Crypto database for user 1:\n   " + resultant;
+                std::string sendStr;
+
+                if (resultant == "")
+                    sendStr = "200 OK\n   User does not own any coins.";
+                else
+                    sendStr = "200 OK\n   The list of records in the Crypto database for user 1:\n   " + resultant;
+
                 send(nClient, sendStr.c_str(), sizeof(buf), 0);
             }
             else if (command == "BALANCE") {
