@@ -17,7 +17,7 @@
 
 // SQLite3 related headers/definitions
 #include "sqlite3.h"
-#define SERVER_PORT  42069
+#define SERVER_PORT  12345
 #define MAX_PENDING  5
 #define MAX_LINE     256
 
