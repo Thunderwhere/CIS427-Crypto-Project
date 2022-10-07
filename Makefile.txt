@@ -1,9 +1,7 @@
-CFLAGS= -g
 CC=g++
 
 all: sqlite3 client server 
 
-# To make an executable
 sqlite3: sqlite3.c 
 	$gcc sqlite3.c -c 
 
@@ -13,10 +11,4 @@ client: client.cpp
 server: server.cpp
 	$(CC) server.cpp -std=c++11 -ldl -pthread sqlite3.o -o server 
  
-# To make an object from source
-#.c.o:
-#	$gcc $sqlite3.c -c
 
-# clean out the dross
-#clean:
-#	-rm boundedBuffer condvar1 profStud oneLane *.o
