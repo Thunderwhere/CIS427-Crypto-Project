@@ -79,35 +79,24 @@ int main(int argc, char* argv[]) {
         std::cout << "Connected to the server\n";
         char buf[255] = { 0 };
         
-        //Recive is a blocking call
+        // Receive is a blocking call
         recv(nClientSocket, buf, 255, 0);
         std::cout << buf << std::endl;
 
         while (std::cout << "CLIENT> ") {
             fgets(buf, 256, stdin);
+            char lastCommand[256];
+            strncpy(lastCommand, buf, sizeof(buf));
 
-            if (strcmp(buf, "QUIT\n") == 0) {
-                close(nClientSocket);
-                std::cout << "Closed socket: " << nClientSocket << std::endl;
-                exit(EXIT_SUCCESS);
+            send(nClientSocket, buf, 256, 0);
+            recv(nClientSocket, buf, 256, 0);
+            std::cout << "CLIENT> " << buf << std::endl << std::endl;
+            
+            if (strcmp(lastCommand, "QUIT\n") == 0) {
+               close(nClientSocket);
+               std::cout << "Closed socket: " << nClientSocket << std::endl;
+               exit(EXIT_SUCCESS);
             }
-            else {
-                send(nClientSocket, buf, 256, 0);
-                recv(nClientSocket, buf, 256, 0);
-                std::cout << "CLIENT> " << buf << std::endl << std::endl;
-            }
-
-            // copies buf to last command
-            //char lastCommand[256];
-            //strncpy(lastCommand, buf, sizeof(buf));
-
-
-
-            // checks if last command was QUIT
-            //if (strcmp(lastCommand, "QUIT\n") == 0) {
-            //    close(nClientSocket);   // not sure about this
-            //    break;
-            //}
         }
     }
 }
