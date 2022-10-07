@@ -35,8 +35,6 @@ static int callback(void*, int, char**, char**);
 
 int main(int argc, char* argv[]) {
 
-
-
     // Database Variables
     sqlite3* db;
     char* zErrMsg = 0;
@@ -573,6 +571,13 @@ int main(int argc, char* argv[]) {
                 close(nSocket);
                 std::cout << "Closed Server socket: " << nSocket << std::endl;
                 exit(EXIT_SUCCESS);
+            }
+            else if (command == "QUIT") {
+                std::cout << "Quit command." << std::endl;
+                send(nClient, "200 OK", 7, 0);
+                close(nClient);
+
+                break;
             }
             else {
                 std::cout << "SERVER> Command not recognized" << std::endl;
