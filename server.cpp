@@ -35,6 +35,8 @@ static int callback(void*, int, char**, char**);
 
 int main(int argc, char* argv[]) {
 
+
+
     // Database Variables
     sqlite3* db;
     char* zErrMsg = 0;
@@ -561,6 +563,8 @@ int main(int argc, char* argv[]) {
                     send(nClient, "User does not exist.", sizeof(buf), 0);
                 }
             }
+
+            // Turns off the server and terminates all connections
             else if (command == "SHUTDOWN") {
                 send(nClient, "200 OK", 7, 0);
                 std::cout << "Shutdown command." << std::endl;
@@ -572,13 +576,17 @@ int main(int argc, char* argv[]) {
                 std::cout << "Closed Server socket: " << nSocket << std::endl;
                 exit(EXIT_SUCCESS);
             }
-            else if (command == "QUIT") {
-                std::cout << "Quit command." << std::endl;
-                send(nClient, "200 OK", 7, 0);
-                close(nClient);
 
-                break;
+            // Closes client when client quits
+            else if (command == "QUIT") {
+            std::cout << "Quit command." << std::endl;
+            send(nClient, "200 OK", 7, 0);
+            close(nClient);
+
+            break;
             }
+
+            // Default response to invalid command
             else {
                 std::cout << "SERVER> Command not recognized" << std::endl;
                 send(nClient, "400 invalid command", 20, 0);
@@ -593,6 +601,7 @@ int main(int argc, char* argv[]) {
     exit(EXIT_SUCCESS);
 }
 
+// Parses command from buffer sent from client 
 std::string buildCommand(char line[]) {
     std::string command = "";
     size_t len = strlen(line);
@@ -606,12 +615,16 @@ std::string buildCommand(char line[]) {
     return command;
 }
 
+// Enters the command info into an array. This array contains the type of coin, amount of coin, price per unit of coin, and the user ID.
+// Returns true if successful, otherwise returns false 
 bool extractInfo(char line[], std::string info[], std::string command) {
     int l = command.length();
     int spaceLocation = l + 1;
 
     for (int i = 0; i < 4; i++) {
         info[i] = "";
+
+        // Parses the information
         for (int j = spaceLocation; j < strlen(line); j++) {
             
             if (line[j] == ' ')
@@ -619,6 +632,8 @@ bool extractInfo(char line[], std::string info[], std::string command) {
             if (line[j] == '\n')
                 break;
             info[i] += line[j];
+
+            // Makes sure that only numbers are entered into the array for index 1, 2 and 3
             if (i > 0) {
                 if (((int)line[j] > 57 || (int)line[j] < 46) && (int)line[j] != 47)
                     return false;
@@ -630,16 +645,15 @@ bool extractInfo(char line[], std::string info[], std::string command) {
         }
 
         spaceLocation += info[i].length() + 1;
+
     }
-    /*if ((int)info[1].substr(0, 1)[0] > 57 || (int)info[2].substr(0, 1)[0] > 57 || (int)info[3].substr(0, 1)[0] > 57)
-        return false;
-    if ((int)info[1].substr(0, 1)[0] < 48 || (int)info[2].substr(0, 1)[0] < 48 || (int)info[3].substr(0, 1)[0] < 48)
-        return false;*/
+
     return true;
+
 }
 
 static int callback(void* ptr, int count, char** data, char** azColName) {
-    // NotUsed -> ptr, argc -> count, argv -> data
+
     std::string* resultant = (std::string*)ptr;
     
     if (count == 1) {
@@ -647,7 +661,6 @@ static int callback(void* ptr, int count, char** data, char** azColName) {
     }
     else if (count > 1) {
         for (int i = 0; i < count; i++) {
-            //std::cout << argv[i] << std::endl;
 
             if (*resultant == "") {
                 *resultant = data[i];
